@@ -1,0 +1,4 @@
+.env
+legacy_files/
+*.log
+.watcher_offset
