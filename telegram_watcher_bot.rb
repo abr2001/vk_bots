@@ -9,10 +9,11 @@ require_relative "unu_client"
 # Telegram-бот-наблюдатель: его добавляют в чат или канал (в канал — как администратора),
 # и на каждую ссылку на комментарий VK вида https://vk.ru/wall711835918_3621?reply=3630
 # он создаёт задачу в UNU (тариф «Лайки») со случайным лимитом 10–20 лайков.
+# В наблюдаемый чат бот ничего не пишет: и успехи, и ошибки уходят админу в личку.
 #
 # Конфиг в .env:
 #   TELEGRAM_WATCHER_TOKEN — токен отдельного бота от @BotFather
-#   TELEGRAM_ADMIN_ID      — ваш Telegram user id, сюда бот шлёт ошибки в личку
+#   TELEGRAM_ADMIN_ID      — ваш Telegram user id, сюда бот шлёт все уведомления
 #   UNU-API-KEy            — ключ UNU (используется UnuClient)
 class TelegramWatcherBot
   TG_API = "https://api.telegram.org"
@@ -91,7 +92,9 @@ class TelegramWatcherBot
     links = extract_links(text)
     return if links.empty?
 
-    links.each { |link| process_link(link, message["chat"]["id"]) }
+    chat = message["chat"] || {}
+    chat_label = chat["title"] || chat["username"] || chat["id"]
+    links.each { |link| process_link(link, chat_label) }
   rescue => e
     warn "Ошибка обработки update #{update["update_id"]}: #{e.class}: #{e.message}"
   end
@@ -100,14 +103,14 @@ class TelegramWatcherBot
     text.scan(LINK_RE).uniq.reject { |link| @seen_links.include?(link) }
   end
 
-  def process_link(link, chat_id)
+  def process_link(link, chat_label)
     @seen_links << link
     limit = rand(LIKES_RANGE)
     task_id = create_like_task(link, limit)
-    send_message(chat_id, "UNU: задача ##{task_id} создана (#{limit} лайков)\n#{link}")
+    notify_admin("UNU: задача ##{task_id} создана (#{limit} лайков)\n#{link}\nЧат: #{chat_label}")
   rescue UnuClient::ApiError => e
     warn "Ошибка UNU для #{link}: #{e.message}"
-    notify_admin("UNU: ошибка для #{link} (чат #{chat_id}): #{e.message}")
+    notify_admin("UNU: ошибка для #{link} (чат #{chat_label}): #{e.message}")
   end
 
   def notify_admin(text)
