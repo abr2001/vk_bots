@@ -13,7 +13,7 @@ require_relative "unu_client"
 #
 # Конфиг в .env:
 #   TELEGRAM_WATCHER_TOKEN — токен отдельного бота от @BotFather
-#   TELEGRAM_ADMIN_ID      — ваш Telegram user id, сюда бот шлёт все уведомления
+#   TELEGRAM_ADMIN_IDS     — Telegram user id админов через запятую, им бот шлёт все уведомления
 #   UNU-API-KEy            — ключ UNU (используется UnuClient)
 class TelegramWatcherBot
   TG_API = "https://api.telegram.org"
@@ -30,8 +30,7 @@ class TelegramWatcherBot
     @token = config["TELEGRAM_WATCHER_TOKEN"]
     raise ArgumentError, "Нет TELEGRAM_WATCHER_TOKEN в .env (создайте отдельного бота через @BotFather)" if @token.to_s.empty?
 
-    @admin_id = config["TELEGRAM_ADMIN_ID"].to_s.strip
-    @admin_id = @admin_id.empty? ? nil : @admin_id.to_i
+    @admin_ids = config["TELEGRAM_ADMIN_IDS"].to_s.split(",").map { |id| id.strip.to_i }.reject(&:zero?)
 
     @unu = UnuClient.new(env_path: env_path)
     @offset = load_offset
@@ -114,14 +113,16 @@ class TelegramWatcherBot
   end
 
   def notify_admin(text)
-    if @admin_id.nil?
-      warn "TELEGRAM_ADMIN_ID не задан, ошибка не доставлена: #{text}"
+    if @admin_ids.empty?
+      warn "TELEGRAM_ADMIN_IDS не задан, сообщение не доставлено: #{text}"
       return
     end
 
-    send_message(@admin_id, text)
-  rescue => e
-    warn "Не удалось отправить ошибку админу: #{e.class}: #{e.message}"
+    @admin_ids.each do |admin_id|
+      send_message(admin_id, text)
+    rescue => e
+      warn "Не удалось отправить сообщение админу #{admin_id}: #{e.class}: #{e.message}"
+    end
   end
 
   def create_like_task(link, limit)

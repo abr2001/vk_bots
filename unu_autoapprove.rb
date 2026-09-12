@@ -8,7 +8,7 @@ require_relative "unu_client"
 # Автоаппрув отчётов UNU: раз в INTERVAL_SECONDS находит активные задачи,
 # берёт их отчёты со статусом 2 («на проверке») и аппрувит (оплачивает).
 # О каждом аппруве и об ошибках пишет в stdout и, если заданы
-# TELEGRAM_WATCHER_TOKEN + TELEGRAM_ADMIN_ID в .env, дублирует в Telegram.
+# TELEGRAM_WATCHER_TOKEN + TELEGRAM_ADMIN_IDS в .env, дублирует в Telegram.
 #
 # Запуск: ruby unu_autoapprove.rb           — бесконечный цикл
 #         ruby unu_autoapprove.rb --once    — один проход (для теста)
@@ -20,8 +20,7 @@ class UnuAutoapprove
     @unu = UnuClient.new(env_path: env_path)
     config = TelegramWatcherConfig.load(env_path)
     @tg_token = config["TELEGRAM_WATCHER_TOKEN"]
-    @admin_id = config["TELEGRAM_ADMIN_ID"].to_s.strip
-    @admin_id = nil if @admin_id.empty?
+    @admin_ids = config["TELEGRAM_ADMIN_IDS"].to_s.split(",").map { |id| id.strip.to_i }.reject(&:zero?)
   end
 
   def run
@@ -71,12 +70,14 @@ class UnuAutoapprove
   end
 
   def notify_admin(text)
-    return if @tg_token.to_s.empty? || @admin_id.nil?
+    return if @tg_token.to_s.empty? || @admin_ids.empty?
 
-    uri = URI("#{TG_API}/bot#{@tg_token}/sendMessage")
-    Net::HTTP.post_form(uri, "chat_id" => @admin_id, "text" => text)
-  rescue => e
-    warn "не удалось уведомить админа: #{e.class}: #{e.message}"
+    @admin_ids.each do |admin_id|
+      uri = URI("#{TG_API}/bot#{@tg_token}/sendMessage")
+      Net::HTTP.post_form(uri, "chat_id" => admin_id, "text" => text)
+    rescue => e
+      warn "не удалось уведомить админа #{admin_id}: #{e.class}: #{e.message}"
+    end
   end
 
   def log(text)
