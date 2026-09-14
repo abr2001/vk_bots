@@ -1,0 +1,7 @@
+.git
+.env
+*.log
+*.sql
+*.csv
+*.txt
+.watcher_offset

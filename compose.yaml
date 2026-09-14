@@ -1,0 +1,24 @@
+services:
+  watcher:
+    build: .
+    container_name: vk-watcher-bot
+    restart: unless-stopped
+    environment:
+      # offset-файл хранится в named volume, переживает пересоздание контейнера
+      WATCHER_OFFSET_FILE: /data/.watcher_offset
+    volumes:
+      # .env монтируется read-only: ключ UNU содержит дефис в имени,
+      # через env_file такие переменные compose не передаёт
+      - ./.env:/app/.env:ro
+      - watcher-data:/data
+
+  autoapprove:
+    build: .
+    container_name: vk-unu-autoapprove
+    restart: unless-stopped
+    command: ["ruby", "unu_autoapprove.rb"]
+    volumes:
+      - ./.env:/app/.env:ro
+
+volumes:
+  watcher-data:

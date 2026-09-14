@@ -23,7 +23,7 @@ class TelegramWatcherBot
   TASK_TARIF_ID = 1 # «Лайки»
   TASK_FOLDER_ID = 0 # «Мои задачи»
   POLL_TIMEOUT = 30
-  OFFSET_FILE = ".watcher_offset"
+  OFFSET_FILE = ENV.fetch("WATCHER_OFFSET_FILE", ".watcher_offset")
 
   def initialize(env_path: ".env")
     config = self.class.load_env(env_path)
@@ -152,5 +152,6 @@ class TelegramWatcherBot
 end
 
 if __FILE__ == $PROGRAM_NAME
+  $stdout.sync = true
   TelegramWatcherBot.new.run
 end
