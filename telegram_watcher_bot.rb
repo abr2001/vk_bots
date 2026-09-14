@@ -8,7 +8,7 @@ require_relative "unu_client"
 
 # Telegram-бот-наблюдатель: его добавляют в чат или канал (в канал — как администратора),
 # и на каждую ссылку на комментарий VK вида https://vk.ru/wall711835918_3621?reply=3630
-# он создаёт задачу в UNU (тариф «Лайки») со случайным лимитом 10–20 лайков.
+# он создаёт задачу в UNU (тариф «Лайки») со случайным лимитом 5–15 лайков.
 # В наблюдаемый чат бот ничего не пишет: и успехи, и ошибки уходят админу в личку.
 #
 # Конфиг в .env:
@@ -18,7 +18,7 @@ require_relative "unu_client"
 class TelegramWatcherBot
   TG_API = "https://api.telegram.org"
   LINK_RE = %r{https?://(?:www\.)?vk\.(?:com|ru)/wall-?\d+_\d+\?\S*reply=\d+}i
-  LIKES_RANGE = (10..20).freeze
+  LIKES_RANGE = (5..15).freeze
   TASK_PRICE_RUB = 1.0
   TASK_TARIF_ID = 1 # «Лайки»
   TASK_FOLDER_ID = 0 # «Мои задачи»
