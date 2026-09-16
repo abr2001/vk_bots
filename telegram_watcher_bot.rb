@@ -24,6 +24,8 @@ class TelegramWatcherBot
   TASK_FOLDER_ID = 0 # «Мои задачи»
   POLL_TIMEOUT = 30
   OFFSET_FILE = ENV.fetch("WATCHER_OFFSET_FILE", ".watcher_offset")
+  # task_id -> ссылка: реестр нужен автоаппруву для сводки (API ссылку не возвращает)
+  TASK_LINKS_FILE = ENV.fetch("TASK_LINKS_FILE", "task_links.json")
 
   def initialize(env_path: ".env")
     config = self.class.load_env(env_path)
@@ -106,6 +108,7 @@ class TelegramWatcherBot
     @seen_links << link
     limit = rand(LIKES_RANGE)
     task_id = create_like_task(link, limit)
+    save_task_link(task_id, link)
     notify_admin("UNU: задача ##{task_id} создана (#{limit} лайков)\n#{link}\nЧат: #{chat_label}")
   rescue UnuClient::ApiError => e
     warn "Ошибка UNU для #{link}: #{e.message}"
@@ -138,6 +141,14 @@ class TelegramWatcherBot
       add_to_limit: limit
     )
     result["task_id"]
+  end
+
+  def save_task_link(task_id, link)
+    links = File.exist?(TASK_LINKS_FILE) ? JSON.parse(File.read(TASK_LINKS_FILE)) : {}
+    links[task_id.to_s] = link
+    File.write(TASK_LINKS_FILE, JSON.pretty_generate(links))
+  rescue => e
+    warn "Не удалось сохранить ссылку задачи ##{task_id}: #{e.class}: #{e.message}"
   end
 
   def load_offset

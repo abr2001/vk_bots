@@ -7,14 +7,18 @@ require_relative "unu_client"
 
 # Автоаппрув отчётов UNU: раз в INTERVAL_SECONDS находит активные задачи,
 # берёт их отчёты со статусом 2 («на проверке») и аппрувит (оплачивает).
-# О каждом аппруве и об ошибках пишет в stdout и, если заданы
-# TELEGRAM_WATCHER_TOKEN + TELEGRAM_ADMIN_IDS в .env, дублирует в Telegram.
+# После прохода шлёт админам одно сводное сообщение вида
+# «ссылка — выполнено N из NN»; ссылки берёт из реестра TASK_LINKS_FILE,
+# который ведёт telegram_watcher_bot.rb. Ошибки шлёт отдельно.
+# Уведомления работают, если заданы TELEGRAM_WATCHER_TOKEN + TELEGRAM_ADMIN_IDS в .env.
 #
 # Запуск: ruby unu_autoapprove.rb           — бесконечный цикл
 #         ruby unu_autoapprove.rb --once    — один проход (для теста)
 class UnuAutoapprove
   INTERVAL_SECONDS = 300
   TG_API = "https://api.telegram.org"
+  # task_id -> ссылка, файл ведёт telegram_watcher_bot.rb
+  TASK_LINKS_FILE = ENV.fetch("TASK_LINKS_FILE", "task_links.json")
 
   def initialize(env_path: ".env")
     @unu = UnuClient.new(env_path: env_path)
@@ -41,7 +45,8 @@ class UnuAutoapprove
     reports = pending_reports(task_ids)
     log "отчётов на проверке: #{reports.size}"
 
-    reports.each { |report| approve(report) }
+    approved_task_ids = reports.filter_map { |report| approve(report) }.uniq
+    notify_summary(approved_task_ids) unless approved_task_ids.empty?
   rescue UnuClient::ApiError => e
     log "ошибка API: #{e.message}"
     notify_admin("Автоаппрув UNU: ошибка API: #{e.message}")
@@ -63,10 +68,34 @@ class UnuAutoapprove
   def approve(report)
     @unu.approve_report(report_id: report["id"])
     log "аппрув: отчёт ##{report["id"]}, задача ##{report["task_id"]}, исполнитель #{report["worker_id"]}"
-    notify_admin("UNU: аппрув отчёта ##{report["id"]} (задача ##{report["task_id"]})")
+    report["task_id"]
   rescue UnuClient::ApiError => e
     log "ошибка аппрува отчёта ##{report["id"]}: #{e.message}"
     notify_admin("UNU: ошибка аппрува отчёта ##{report["id"]}: #{e.message}")
+    nil
+  end
+
+  # Одно сообщение вместо уведомления на каждый аппрув:
+  # «ссылка — выполнено N из NN» по каждой задаче с аппрувами в этом проходе
+  def notify_summary(task_ids)
+    tasks = @unu.get_tasks(task_id: task_ids)["tasks"] || []
+    links = task_links
+    lines = tasks.map do |task|
+      target = links[task["id"].to_s] || "задача ##{task["id"]}"
+      "#{target} — выполнено #{task["done_total"]} из #{task["limit_total"]}"
+    end
+    notify_admin((["UNU: аппрув отчётов"] + lines).join("\n"))
+  rescue UnuClient::ApiError => e
+    log "ошибка при сборе сводки: #{e.message}"
+    notify_admin("UNU: аппрув прошёл, но сводку собрать не удалось: #{e.message}")
+  end
+
+  def task_links
+    return {} unless File.exist?(TASK_LINKS_FILE)
+
+    JSON.parse(File.read(TASK_LINKS_FILE))
+  rescue JSON::ParserError
+    {}
   end
 
   def notify_admin(text)

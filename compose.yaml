@@ -6,6 +6,8 @@ services:
     environment:
       # offset-файл хранится в named volume, переживает пересоздание контейнера
       WATCHER_OFFSET_FILE: /data/.watcher_offset
+      # реестр task_id -> ссылка, его читает autoapprove для сводки
+      TASK_LINKS_FILE: /data/task_links.json
     volumes:
       # .env монтируется read-only: ключ UNU содержит дефис в имени,
       # через env_file такие переменные compose не передаёт
@@ -17,8 +19,11 @@ services:
     container_name: vk-unu-autoapprove
     restart: unless-stopped
     command: ["ruby", "unu_autoapprove.rb"]
+    environment:
+      TASK_LINKS_FILE: /data/task_links.json
     volumes:
       - ./.env:/app/.env:ro
+      - watcher-data:/data
 
 volumes:
   watcher-data:
