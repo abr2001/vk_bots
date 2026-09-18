@@ -24,6 +24,8 @@ class TelegramWatcherBot
   TASK_FOLDER_ID = 0 # «Мои задачи»
   POLL_TIMEOUT = 30
   OFFSET_FILE = ENV.fetch("WATCHER_OFFSET_FILE", ".watcher_offset")
+  SEEN_LINKS_FILE = ENV.fetch("WATCHER_SEEN_LINKS_FILE", ".watcher_seen_links")
+  SEEN_LINKS_MAX = 5000
   # task_id -> ссылка: реестр нужен автоаппруву для сводки (API ссылку не возвращает)
   TASK_LINKS_FILE = ENV.fetch("TASK_LINKS_FILE", "task_links.json")
 
@@ -36,7 +38,7 @@ class TelegramWatcherBot
 
     @unu = UnuClient.new(env_path: env_path)
     @offset = load_offset
-    @seen_links = Set.new
+    @seen_links = load_seen_links
   end
 
   def self.load_env(env_path)
@@ -50,6 +52,7 @@ class TelegramWatcherBot
 
   def run
     puts "Наблюдатель запущен (long polling)"
+    skip_backlog if @offset.zero?
     loop do
       get_updates.each { |update| handle_update(update) }
     rescue Net::OpenTimeout, Net::ReadTimeout, SocketError, SystemCallError, JSON::ParserError => e
@@ -59,6 +62,19 @@ class TelegramWatcherBot
   end
 
   private
+
+  # Свежий запуск без offset-файла (новый сервер/volume): подтверждаем весь
+  # накопившийся бэклог, не обрабатывая его. Иначе бот создаст задачи заново
+  # по старым сообщениям — Telegram хранит неподтверждённые апдейты до 24 ч.
+  def skip_backlog
+    updates = tg_request("getUpdates", "offset" => -1, "timeout" => 0)
+    last = updates.map { |u| u["update_id"] }.max
+    return unless last
+
+    @offset = last + 1
+    save_offset
+    puts "Свежий запуск: бэклог до update_id=#{last} пропущен"
+  end
 
   def tg_request(method, params = {})
     uri = URI("#{TG_API}/bot#{@token}/#{method}")
@@ -106,6 +122,7 @@ class TelegramWatcherBot
 
   def process_link(link, chat_label)
     @seen_links << link
+    save_seen_links
     limit = rand(LIKES_RANGE)
     task_id = create_like_task(link, limit)
     save_task_link(task_id, link)
@@ -149,6 +166,21 @@ class TelegramWatcherBot
     File.write(TASK_LINKS_FILE, JSON.pretty_generate(links))
   rescue => e
     warn "Не удалось сохранить ссылку задачи ##{task_id}: #{e.class}: #{e.message}"
+  end
+
+  def load_seen_links
+    return Set.new unless File.exist?(SEEN_LINKS_FILE)
+
+    Set.new(JSON.parse(File.read(SEEN_LINKS_FILE)))
+  rescue JSON::ParserError
+    Set.new
+  end
+
+  def save_seen_links
+    @seen_links = Set.new(@seen_links.to_a.last(SEEN_LINKS_MAX)) if @seen_links.size > SEEN_LINKS_MAX
+    File.write(SEEN_LINKS_FILE, JSON.generate(@seen_links.to_a))
+  rescue => e
+    warn "Не удалось сохранить список ссылок: #{e.class}: #{e.message}"
   end
 
   def load_offset

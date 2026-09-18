@@ -6,6 +6,8 @@ services:
     environment:
       # offset-файл хранится в named volume, переживает пересоздание контейнера
       WATCHER_OFFSET_FILE: /data/.watcher_offset
+      # дедуп-список обработанных ссылок тоже в volume
+      WATCHER_SEEN_LINKS_FILE: /data/.watcher_seen_links
       # реестр task_id -> ссылка, его читает autoapprove для сводки
       TASK_LINKS_FILE: /data/task_links.json
     volumes:
