@@ -9,7 +9,9 @@ require_relative "vkserfing_client"
 
 # Telegram-бот-наблюдатель над VKSerfing: аналог telegram_watcher_bot.rb,
 # но вместо задачи UNU создаёт заказ VKSerfing (тип vk_like) со случайным
-# лимитом 5–15 лайков. В наблюдаемый чат бот ничего не пишет: и успехи,
+# лимитом 5–15 лайков. Таргетинг исполнителей: мужской пол, 22+, от 30 друзей,
+# от 5 записей на стене, от 1 фото профиля, страна — Россия (константа TARGETING).
+# В наблюдаемый чат бот ничего не пишет: и успехи,
 # и ошибки уходят админам в личку.
 #
 # ВНИМАНИЕ: одновременно с telegram_watcher_bot.rb запускать нельзя —
@@ -30,6 +32,9 @@ class VkserfingWatcherBot
   OFFSET_FILE = ENV.fetch("VKS_WATCHER_OFFSET_FILE", ".vks_watcher_offset")
   SEEN_LINKS_FILE = ENV.fetch("VKS_WATCHER_SEEN_LINKS_FILE", ".vks_watcher_seen_links")
   SEEN_LINKS_MAX = 5000
+
+  # Таргетинг исполнителей (параметры campaign.add)
+  TARGETING = { sex: 2, age_from: 22, friends_from: 30, records_from: 5, profile_photos_from: 1, country_id: 1 }.freeze # мужской, 22+, 30+ друзей, 5+ записей, 1+ фото профиля, Россия
 
   def initialize(env_path: ".env")
     config = self.class.load_env(env_path)
@@ -154,7 +159,8 @@ class VkserfingWatcherBot
       name: "Лайк комментария ВК",
       status: "on",
       order_id: order_id_for(link),
-      amount_users_limit: limit
+      amount_users_limit: limit,
+      **TARGETING
     )
     result["id"] || result
   end
