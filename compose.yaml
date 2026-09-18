@@ -5,11 +5,9 @@ services:
     restart: unless-stopped
     environment:
       # offset-файл хранится в named volume, переживает пересоздание контейнера
-      WATCHER_OFFSET_FILE: /data/.watcher_offset
+      VKS_WATCHER_OFFSET_FILE: /data/.vks_watcher_offset
       # дедуп-список обработанных ссылок тоже в volume
-      WATCHER_SEEN_LINKS_FILE: /data/.watcher_seen_links
-      # реестр task_id -> ссылка, его читает autoapprove для сводки
-      TASK_LINKS_FILE: /data/task_links.json
+      VKS_WATCHER_SEEN_LINKS_FILE: /data/.vks_watcher_seen_links
     volumes:
       # .env монтируется read-only: ключ UNU содержит дефис в имени,
       # через env_file такие переменные compose не передаёт
