@@ -1,0 +1,31 @@
+AllCops:
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - 'check_pages.sh'
+    - '*.sql'
+
+# Методы названы в точности как методы API бирж (get_tasks, get_reports, ...) —
+# это сознательное соответствие документации UNU/VKSerfing.
+Naming/AccessorMethodName:
+  Enabled: false
+
+# Боты — маленькие скрипты, лимиты по умолчанию слишком строгие.
+Metrics/ClassLength:
+  Max: 160
+
+Metrics/MethodLength:
+  Max: 20
+
+Metrics/AbcSize:
+  Max: 30
+
+Metrics/CyclomaticComplexity:
+  Max: 14
+
+Metrics/PerceivedComplexity:
+  Max: 14
+
+# Параметры методов-клиентов повторяют параметры API бирж.
+Metrics/ParameterLists:
+  Max: 8

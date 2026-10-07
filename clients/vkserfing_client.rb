@@ -128,7 +128,7 @@ class VkserfingClient
   private
 
   def compact(hash)
-    hash.reject { |_, v| v.nil? }.transform_keys(&:to_s)
+    hash.compact.transform_keys(&:to_s)
   end
 
   def stringify(hash)
@@ -136,7 +136,7 @@ class VkserfingClient
   end
 
   def flatten_params(hash, prefix = nil)
-    hash.reject { |_, v| v.nil? }.flat_map do |key, value|
+    hash.compact.flat_map do |key, value|
       name = prefix ? "#{prefix}[#{key}]" : key.to_s
       case value
       when Hash

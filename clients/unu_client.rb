@@ -176,7 +176,7 @@ class UnuClient
   private
 
   def compact(hash)
-    hash.reject { |_, v| v.nil? }.transform_keys(&:to_s)
+    hash.compact.transform_keys(&:to_s)
   end
 
   def stringify(hash)
