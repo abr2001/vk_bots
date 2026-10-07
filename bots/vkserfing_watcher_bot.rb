@@ -42,17 +42,17 @@ class VkserfingWatcherBot
     country_id: 1
   }.freeze # мужской, 22+, 30+ друзей, 5+ записей, 1+ фото профиля, Россия
 
-  def initialize(env_path: '.env')
+  def initialize(env_path: '.env', token: nil, admin_ids: nil, vks: nil)
     config = self.class.load_env(env_path)
-    @token = config['TELEGRAM_WATCHER_TOKEN']
+    @token = token || config['TELEGRAM_WATCHER_TOKEN']
     if @token.to_s.empty?
       raise ArgumentError,
             'Нет TELEGRAM_WATCHER_TOKEN в .env (создайте отдельного бота через @BotFather)'
     end
 
-    @admin_ids = config['TELEGRAM_ADMIN_IDS'].to_s.split(',').map { |id| id.strip.to_i }.reject(&:zero?)
+    @admin_ids = admin_ids || config['TELEGRAM_ADMIN_IDS'].to_s.split(',').map { |id| id.strip.to_i }.reject(&:zero?)
 
-    @vks = VkserfingClient.new(env_path:)
+    @vks = vks || VkserfingClient.new(env_path:)
     @offset = load_offset
     @seen_links = load_seen_links
   end

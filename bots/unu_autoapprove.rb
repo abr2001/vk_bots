@@ -20,11 +20,11 @@ class UnuAutoapprove
   # task_id -> ссылка, файл ведёт telegram_watcher_bot.rb
   TASK_LINKS_FILE = ENV.fetch('TASK_LINKS_FILE', 'task_links.json')
 
-  def initialize(env_path: '.env')
-    @unu = UnuClient.new(env_path:)
+  def initialize(env_path: '.env', unu: nil, tg_token: nil, admin_ids: nil)
+    @unu = unu || UnuClient.new(env_path:)
     config = TelegramWatcherConfig.load(env_path)
-    @tg_token = config['TELEGRAM_WATCHER_TOKEN']
-    @admin_ids = config['TELEGRAM_ADMIN_IDS'].to_s.split(',').map { |id| id.strip.to_i }.reject(&:zero?)
+    @tg_token = tg_token || config['TELEGRAM_WATCHER_TOKEN']
+    @admin_ids = admin_ids || config['TELEGRAM_ADMIN_IDS'].to_s.split(',').map { |id| id.strip.to_i }.reject(&:zero?)
   end
 
   def run

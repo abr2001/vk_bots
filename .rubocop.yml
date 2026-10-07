@@ -29,3 +29,12 @@ Metrics/PerceivedComplexity:
 # Параметры методов-клиентов повторяют параметры API бирж.
 Metrics/ParameterLists:
   Max: 8
+
+# Тесты: docstring-комментарии и пустые no-op блоки (заглушки log) — норма.
+Style/Documentation:
+  Exclude:
+    - 'tests/**/*'
+
+Lint/EmptyBlock:
+  Exclude:
+    - 'tests/**/*'

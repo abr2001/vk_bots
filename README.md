@@ -54,10 +54,13 @@ ssh root@<сервер> 'cd /root/vk_bot && docker compose up -d --build'
 
 Поднимаются два контейнера: `vk-watcher-bot` (наблюдатель VKSerfing) и `vk-unu-autoapprove`. Состояние (offset Telegram, обработанные ссылки) хранится в named volume `watcher-data`, переживает пересоздание контейнеров.
 
-## Линт
+## Линт и тесты
 
 ```bash
-rubocop clients/*.rb bots/*.rb
+rubocop clients/*.rb bots/*.rb tests/*.rb
+rake test   # юнит-тесты на minitest (stdlib), без сети и реальных ключей
 ```
 
-Конфиг — `.rubocop.yml` (имена методов совпадают с методами API бирж, лимиты Metrics ослаблены).
+CI: GitHub Actions (`.github/workflows/tests.yml`) гоняет тесты на каждый push.
+
+Конфиг линтера — `.rubocop.yml` (имена методов совпадают с методами API бирж, лимиты Metrics ослаблены).
