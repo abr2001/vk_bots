@@ -1,11 +1,10 @@
 # frozen_string_literal: true
 
-require "net/http"
-require "uri"
-require "json"
-require "set"
-require "digest"
-require_relative "vkserfing_client"
+require 'net/http'
+require 'uri'
+require 'json'
+require 'digest'
+require_relative 'clients/vkserfing_client'
 
 # Telegram-бот-наблюдатель над VKSerfing: аналог telegram_watcher_bot.rb,
 # но вместо задачи UNU создаёт заказ VKSerfing (тип vk_like) со случайным
@@ -24,26 +23,36 @@ require_relative "vkserfing_client"
 #   TELEGRAM_ADMIN_IDS     — Telegram user id админов через запятую
 #   VKSERFING-API-KEY      — ключ VKSerfing (используется VkserfingClient)
 class VkserfingWatcherBot
-  TG_API = "https://api.telegram.org"
+  TG_API = 'https://api.telegram.org'
   LINK_RE = %r{https?://(?:www\.)?vk\.(?:com|ru)/wall-?\d+_\d+\?\S*reply=\d+}i
-  LIKES_RANGE = (5..15).freeze
-  CAMPAIGN_TYPE = "vk_like"
+  LIKES_RANGE = (5..15)
+  CAMPAIGN_TYPE = 'vk_like'
   POLL_TIMEOUT = 30
-  OFFSET_FILE = ENV.fetch("VKS_WATCHER_OFFSET_FILE", ".vks_watcher_offset")
-  SEEN_LINKS_FILE = ENV.fetch("VKS_WATCHER_SEEN_LINKS_FILE", ".vks_watcher_seen_links")
+  OFFSET_FILE = ENV.fetch('VKS_WATCHER_OFFSET_FILE', '.vks_watcher_offset')
+  SEEN_LINKS_FILE = ENV.fetch('VKS_WATCHER_SEEN_LINKS_FILE', '.vks_watcher_seen_links')
   SEEN_LINKS_MAX = 5000
 
   # Таргетинг исполнителей (параметры campaign.add)
-  TARGETING = { sex: 2, age_from: 22, friends_from: 30, records_from: 5, profile_photos_from: 1, country_id: 1 }.freeze # мужской, 22+, 30+ друзей, 5+ записей, 1+ фото профиля, Россия
+  TARGETING = {
+    sex: 2,
+    age_from: 22,
+    friends_from: 30,
+    records_from: 5,
+    profile_photos_from: 1,
+    country_id: 1
+  }.freeze # мужской, 22+, 30+ друзей, 5+ записей, 1+ фото профиля, Россия
 
-  def initialize(env_path: ".env")
+  def initialize(env_path: '.env')
     config = self.class.load_env(env_path)
-    @token = config["TELEGRAM_WATCHER_TOKEN"]
-    raise ArgumentError, "Нет TELEGRAM_WATCHER_TOKEN в .env (создайте отдельного бота через @BotFather)" if @token.to_s.empty?
+    @token = config['TELEGRAM_WATCHER_TOKEN']
+    if @token.to_s.empty?
+      raise ArgumentError,
+            'Нет TELEGRAM_WATCHER_TOKEN в .env (создайте отдельного бота через @BotFather)'
+    end
 
-    @admin_ids = config["TELEGRAM_ADMIN_IDS"].to_s.split(",").map { |id| id.strip.to_i }.reject(&:zero?)
+    @admin_ids = config['TELEGRAM_ADMIN_IDS'].to_s.split(',').map { |id| id.strip.to_i }.reject(&:zero?)
 
-    @vks = VkserfingClient.new(env_path: env_path)
+    @vks = VkserfingClient.new(env_path:)
     @offset = load_offset
     @seen_links = load_seen_links
   end
@@ -52,13 +61,13 @@ class VkserfingWatcherBot
     return {} unless File.exist?(env_path)
 
     File.readlines(env_path).to_h do |line|
-      key, value = line.chomp.split("=", 2)
+      key, value = line.chomp.split('=', 2)
       [key.to_s.strip, value.to_s.strip]
     end
   end
 
   def run
-    puts "VKSerfing-наблюдатель запущен (long polling)"
+    puts 'VKSerfing-наблюдатель запущен (long polling)'
     skip_backlog if @offset.zero?
     loop do
       get_updates.each { |update| handle_update(update) }
@@ -73,8 +82,8 @@ class VkserfingWatcherBot
   # Свежий запуск без offset-файла: подтверждаем весь накопившийся бэклог,
   # не обрабатывая его (Telegram хранит неподтверждённые апдейты до 24 ч).
   def skip_backlog
-    updates = tg_request("getUpdates", "offset" => -1, "timeout" => 0)
-    last = updates.map { |u| u["update_id"] }.max
+    updates = tg_request('getUpdates', 'offset' => -1, 'timeout' => 0)
+    last = updates.map { |u| u['update_id'] }.max
     return unless last
 
     @offset = last + 1
@@ -86,38 +95,38 @@ class VkserfingWatcherBot
     uri = URI("#{TG_API}/bot#{@token}/#{method}")
     response = Net::HTTP.post_form(uri, params)
     data = JSON.parse(response.body)
-    raise "Telegram API #{method}: #{data["description"]}" unless data["ok"]
+    raise "Telegram API #{method}: #{data['description']}" unless data['ok']
 
-    data["result"]
+    data['result']
   end
 
   def get_updates
-    tg_request("getUpdates", "offset" => @offset, "timeout" => POLL_TIMEOUT)
+    tg_request('getUpdates', 'offset' => @offset, 'timeout' => POLL_TIMEOUT)
   end
 
   def send_message(chat_id, text)
-    tg_request("sendMessage", "chat_id" => chat_id, "text" => text)
+    tg_request('sendMessage', 'chat_id' => chat_id, 'text' => text)
   end
 
   def handle_update(update)
-    @offset = update["update_id"] + 1
+    @offset = update['update_id'] + 1
     save_offset
 
-    message = update["message"] || update["edited_message"] ||
-              update["channel_post"] || update["edited_channel_post"]
+    message = update['message'] || update['edited_message'] ||
+              update['channel_post'] || update['edited_channel_post']
     return unless message
 
-    text = message["text"] || message["caption"]
+    text = message['text'] || message['caption']
     return unless text
 
     links = extract_links(text)
     return if links.empty?
 
-    chat = message["chat"] || {}
-    chat_label = chat["title"] || chat["username"] || chat["id"]
+    chat = message['chat'] || {}
+    chat_label = chat['title'] || chat['username'] || chat['id']
     links.each { |link| process_link(link, chat_label) }
-  rescue => e
-    warn "Ошибка обработки update #{update["update_id"]}: #{e.class}: #{e.message}"
+  rescue StandardError => e
+    warn "Ошибка обработки update #{update['update_id']}: #{e.class}: #{e.message}"
   end
 
   def extract_links(text)
@@ -131,7 +140,7 @@ class VkserfingWatcherBot
     campaign_id = create_like_campaign(link, limit)
     notify_admin("VKSerfing: заказ ##{campaign_id} создан (#{limit} лайков)\n#{link}\nЧат: #{chat_label}")
   rescue VkserfingClient::ApiError => e
-    if e.message.include?("ORDER_EXISTS")
+    if e.message.include?('ORDER_EXISTS')
       warn "VKSerfing: заказ для #{link} уже существует, пропуск"
     else
       warn "Ошибка VKSerfing для #{link}: #{e.message}"
@@ -147,7 +156,7 @@ class VkserfingWatcherBot
 
     @admin_ids.each do |admin_id|
       send_message(admin_id, text)
-    rescue => e
+    rescue StandardError => e
       warn "Не удалось отправить сообщение админу #{admin_id}: #{e.class}: #{e.message}"
     end
   end
@@ -155,14 +164,14 @@ class VkserfingWatcherBot
   def create_like_campaign(link, limit)
     result = @vks.campaign_add(
       type: CAMPAIGN_TYPE,
-      link: link,
-      name: "Лайк комментария ВК",
-      status: "on",
+      link:,
+      name: 'Лайк комментария ВК',
+      status: 'on',
       order_id: order_id_for(link),
       amount_users_limit: limit,
       **TARGETING
     )
-    result["id"] || result
+    result['id'] || result
   end
 
   # Детерминированный order_id: защита от дублей на стороне VKSerfing
@@ -182,7 +191,7 @@ class VkserfingWatcherBot
   def save_seen_links
     @seen_links = Set.new(@seen_links.to_a.last(SEEN_LINKS_MAX)) if @seen_links.size > SEEN_LINKS_MAX
     File.write(SEEN_LINKS_FILE, JSON.generate(@seen_links.to_a))
-  rescue => e
+  rescue StandardError => e
     warn "Не удалось сохранить список ссылок: #{e.class}: #{e.message}"
   end
 

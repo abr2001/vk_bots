@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require "net/http"
-require "uri"
-require "json"
-require_relative "unu_client"
+require 'net/http'
+require 'uri'
+require 'json'
+require_relative 'clients/unu_client'
 
 # Автоаппрув отчётов UNU: раз в INTERVAL_SECONDS находит активные задачи,
 # берёт их отчёты со статусом 2 («на проверке») и аппрувит (оплачивает).
@@ -16,15 +16,15 @@ require_relative "unu_client"
 #         ruby unu_autoapprove.rb --once    — один проход (для теста)
 class UnuAutoapprove
   INTERVAL_SECONDS = 300
-  TG_API = "https://api.telegram.org"
+  TG_API = 'https://api.telegram.org'
   # task_id -> ссылка, файл ведёт telegram_watcher_bot.rb
-  TASK_LINKS_FILE = ENV.fetch("TASK_LINKS_FILE", "task_links.json")
+  TASK_LINKS_FILE = ENV.fetch('TASK_LINKS_FILE', 'task_links.json')
 
-  def initialize(env_path: ".env")
-    @unu = UnuClient.new(env_path: env_path)
+  def initialize(env_path: '.env')
+    @unu = UnuClient.new(env_path:)
     config = TelegramWatcherConfig.load(env_path)
-    @tg_token = config["TELEGRAM_WATCHER_TOKEN"]
-    @admin_ids = config["TELEGRAM_ADMIN_IDS"].to_s.split(",").map { |id| id.strip.to_i }.reject(&:zero?)
+    @tg_token = config['TELEGRAM_WATCHER_TOKEN']
+    @admin_ids = config['TELEGRAM_ADMIN_IDS'].to_s.split(',').map { |id| id.strip.to_i }.reject(&:zero?)
   end
 
   def run
@@ -55,36 +55,36 @@ class UnuAutoapprove
   private
 
   def active_task_ids
-    tasks = @unu.get_tasks(status: 4)["tasks"] || []
-    tasks.map { |t| t["id"] }
+    tasks = @unu.get_tasks(status: 4)['tasks'] || []
+    tasks.map { |t| t['id'] }
   end
 
   # get_reports принимает несколько task_id через запятую
   def pending_reports(task_ids)
-    reports = @unu.get_reports(task_id: task_ids)["reports"] || []
-    reports.select { |r| r["status"].to_i == 2 }
+    reports = @unu.get_reports(task_id: task_ids)['reports'] || []
+    reports.select { |r| r['status'].to_i == 2 }
   end
 
   def approve(report)
-    @unu.approve_report(report_id: report["id"])
-    log "аппрув: отчёт ##{report["id"]}, задача ##{report["task_id"]}, исполнитель #{report["worker_id"]}"
-    report["task_id"]
+    @unu.approve_report(report_id: report['id'])
+    log "аппрув: отчёт ##{report['id']}, задача ##{report['task_id']}, исполнитель #{report['worker_id']}"
+    report['task_id']
   rescue UnuClient::ApiError => e
-    log "ошибка аппрува отчёта ##{report["id"]}: #{e.message}"
-    notify_admin("UNU: ошибка аппрува отчёта ##{report["id"]}: #{e.message}")
+    log "ошибка аппрува отчёта ##{report['id']}: #{e.message}"
+    notify_admin("UNU: ошибка аппрува отчёта ##{report['id']}: #{e.message}")
     nil
   end
 
   # Одно сообщение вместо уведомления на каждый аппрув:
   # «ссылка — выполнено N из NN» по каждой задаче с аппрувами в этом проходе
   def notify_summary(task_ids)
-    tasks = @unu.get_tasks(task_id: task_ids)["tasks"] || []
+    tasks = @unu.get_tasks(task_id: task_ids)['tasks'] || []
     links = task_links
     lines = tasks.map do |task|
-      target = links[task["id"].to_s] || "задача ##{task["id"]}"
-      "#{target} — выполнено #{task["done_total"]} из #{task["limit_total"]}"
+      target = links[task['id'].to_s] || "задача ##{task['id']}"
+      "#{target} — выполнено #{task['done_total']} из #{task['limit_total']}"
     end
-    notify_admin((["UNU: аппрув отчётов"] + lines).join("\n"))
+    notify_admin((['UNU: аппрув отчётов'] + lines).join("\n"))
   rescue UnuClient::ApiError => e
     log "ошибка при сборе сводки: #{e.message}"
     notify_admin("UNU: аппрув прошёл, но сводку собрать не удалось: #{e.message}")
@@ -103,14 +103,14 @@ class UnuAutoapprove
 
     @admin_ids.each do |admin_id|
       uri = URI("#{TG_API}/bot#{@tg_token}/sendMessage")
-      Net::HTTP.post_form(uri, "chat_id" => admin_id, "text" => text)
-    rescue => e
+      Net::HTTP.post_form(uri, 'chat_id' => admin_id, 'text' => text)
+    rescue StandardError => e
       warn "не удалось уведомить админа #{admin_id}: #{e.class}: #{e.message}"
     end
   end
 
   def log(text)
-    puts "[#{Time.now.strftime("%Y-%m-%d %H:%M:%S")}] #{text}"
+    puts "[#{Time.now.strftime('%Y-%m-%d %H:%M:%S')}] #{text}"
   end
 end
 
@@ -120,7 +120,7 @@ class TelegramWatcherConfig
     return {} unless File.exist?(env_path)
 
     File.readlines(env_path).to_h do |line|
-      key, value = line.chomp.split("=", 2)
+      key, value = line.chomp.split('=', 2)
       [key.to_s.strip, value.to_s.strip]
     end
   end
@@ -129,7 +129,7 @@ end
 if __FILE__ == $PROGRAM_NAME
   $stdout.sync = true
   bot = UnuAutoapprove.new
-  if ARGV.include?("--once")
+  if ARGV.include?('--once')
     bot.pass
   else
     bot.run

@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require "net/http"
-require "uri"
-require "json"
-require_relative "unu_client"
+require 'net/http'
+require 'uri'
+require 'json'
+require_relative 'clients/unu_client'
 
 # Telegram-бот: по команде /like [N] и списку ссылок на комментарии VK
 # создаёт задачи в UNU (тариф «Лайки», по одной задаче на ссылку).
@@ -13,14 +13,14 @@ require_relative "unu_client"
 #   ALLOWED_USER_IDS   — whitelist Telegram user ID через запятую
 #   UNU-API-KEy        — ключ UNU (используется UnuClient)
 class TelegramBot
-  TG_API = "https://api.telegram.org"
+  TG_API = 'https://api.telegram.org'
   DEFAULT_LIMIT = 10
   TASK_PRICE_RUB = 1.0
   TASK_TARIF_ID = 1 # «Лайки»
   TASK_FOLDER_ID = 0 # «Мои задачи»
   POLL_TIMEOUT = 30
 
-  HELP_TEXT = <<~TEXT
+  HELP_TEXT = <<~TEXT.freeze
     Команда: /like [N] и ссылки на комментарии (каждая с новой строки или через пробел).
     N — сколько лайков заказать на каждую ссылку (по умолчанию #{DEFAULT_LIMIT}).
 
@@ -30,13 +30,13 @@ class TelegramBot
     https://vk.com/wall-4_5?reply=6
   TEXT
 
-  def initialize(env_path: ".env")
+  def initialize(env_path: '.env')
     config = self.class.load_env(env_path)
-    @token = config["TELEGRAM_BOT_TOKEN"]
-    raise ArgumentError, "Нет TELEGRAM_BOT_TOKEN в .env (создайте бота через @BotFather)" if @token.to_s.empty?
+    @token = config['TELEGRAM_BOT_TOKEN']
+    raise ArgumentError, 'Нет TELEGRAM_BOT_TOKEN в .env (создайте бота через @BotFather)' if @token.to_s.empty?
 
-    @allowed_user_ids = config["ALLOWED_USER_IDS"].to_s.split(",").map { |id| id.strip.to_i }.reject(&:zero?)
-    @unu = UnuClient.new(env_path: env_path)
+    @allowed_user_ids = config['ALLOWED_USER_IDS'].to_s.split(',').map { |id| id.strip.to_i }.reject(&:zero?)
+    @unu = UnuClient.new(env_path:)
     @offset = 0
   end
 
@@ -44,13 +44,13 @@ class TelegramBot
     return {} unless File.exist?(env_path)
 
     File.readlines(env_path).to_h do |line|
-      key, value = line.chomp.split("=", 2)
+      key, value = line.chomp.split('=', 2)
       [key.to_s.strip, value.to_s.strip]
     end
   end
 
   def run
-    puts "Бот запущен (long polling)"
+    puts 'Бот запущен (long polling)'
     loop do
       updates = get_updates
       updates.each { |update| handle_update(update) }
@@ -66,52 +66,52 @@ class TelegramBot
     uri = URI("#{TG_API}/bot#{@token}/#{method}")
     response = Net::HTTP.post_form(uri, params)
     data = JSON.parse(response.body)
-    raise "Telegram API #{method}: #{data["description"]}" unless data["ok"]
+    raise "Telegram API #{method}: #{data['description']}" unless data['ok']
 
-    data["result"]
+    data['result']
   end
 
   def get_updates
-    tg_request("getUpdates", "offset" => @offset, "timeout" => POLL_TIMEOUT)
+    tg_request('getUpdates', 'offset' => @offset, 'timeout' => POLL_TIMEOUT)
   end
 
   def send_message(chat_id, text)
-    tg_request("sendMessage", "chat_id" => chat_id, "text" => text)
+    tg_request('sendMessage', 'chat_id' => chat_id, 'text' => text)
   end
 
   def handle_update(update)
-    @offset = update["update_id"] + 1
-    message = update["message"] || update["edited_message"]
-    return unless message && message["text"]
+    @offset = update['update_id'] + 1
+    message = update['message'] || update['edited_message']
+    return unless message && message['text']
 
     handle_message(message)
-  rescue => e
-    warn "Ошибка обработки update #{update["update_id"]}: #{e.class}: #{e.message}"
-    send_message(message["chat"]["id"], "Ошибка: #{e.message}") if message
+  rescue StandardError => e
+    warn "Ошибка обработки update #{update['update_id']}: #{e.class}: #{e.message}"
+    send_message(message['chat']['id'], "Ошибка: #{e.message}") if message
   end
 
   def handle_message(message)
-    chat_id = message["chat"]["id"]
-    user_id = message.dig("from", "id").to_i
+    chat_id = message['chat']['id']
+    user_id = message.dig('from', 'id').to_i
 
     unless @allowed_user_ids.include?(user_id)
       send_message(chat_id, "Доступ запрещён. Ваш Telegram user id: #{user_id}")
       return
     end
 
-    text = message["text"].strip
+    text = message['text'].strip
     case text
-    when /\A\/(start|help)/
+    when %r{\A/(start|help)}
       send_message(chat_id, HELP_TEXT)
-    when /\A\/like/
+    when %r{\A/like}
       handle_like(text, chat_id)
     else
-      send_message(chat_id, "Неизвестная команда. /help — справка")
+      send_message(chat_id, 'Неизвестная команда. /help — справка')
     end
   end
 
   def handle_like(text, chat_id)
-    limit = text[/\A\/like\s+(\d+)/, 1]&.to_i || DEFAULT_LIMIT
+    limit = text[%r{\A/like\s+(\d+)}, 1]&.to_i || DEFAULT_LIMIT
     links = text.scan(%r{https?://\S+})
 
     if links.empty?
@@ -129,20 +129,18 @@ class TelegramBot
 
   def create_like_task(link, limit)
     result = @unu.add_task_start(
-      name: "Лайк комментария ВК",
+      name: 'Лайк комментария ВК',
       descr: "Перейдите по ссылке и поставьте лайк комментарию: #{link}",
-      link: link,
-      need_for_report: "Скриншот поставленного лайка",
+      link:,
+      need_for_report: 'Скриншот поставленного лайка',
       need_screen: 1,
       price: TASK_PRICE_RUB,
       tarif_id: TASK_TARIF_ID,
       folder_id: TASK_FOLDER_ID,
       add_to_limit: limit
     )
-    result["task_id"]
+    result['task_id']
   end
 end
 
-if __FILE__ == $PROGRAM_NAME
-  TelegramBot.new.run
-end
+TelegramBot.new.run if __FILE__ == $PROGRAM_NAME
