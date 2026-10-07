@@ -4,7 +4,7 @@ require 'net/http'
 require 'uri'
 require 'json'
 require 'digest'
-require_relative 'clients/vkserfing_client'
+require_relative '../clients/vkserfing_client'
 
 # Telegram-бот-наблюдатель над VKSerfing: аналог telegram_watcher_bot.rb,
 # но вместо задачи UNU создаёт заказ VKSerfing (тип vk_like) со случайным

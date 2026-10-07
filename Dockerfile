@@ -4,6 +4,6 @@ WORKDIR /app
 
 # Внешних гемов нет — только stdlib, bundler не нужен
 COPY clients ./clients
-COPY telegram_watcher_bot.rb unu_autoapprove.rb vkserfing_watcher_bot.rb ./
+COPY bots ./bots
 
-CMD ["ruby", "vkserfing_watcher_bot.rb"]
+CMD ["ruby", "bots/vkserfing_watcher_bot.rb"]

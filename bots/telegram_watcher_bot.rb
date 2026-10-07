@@ -3,7 +3,7 @@
 require 'net/http'
 require 'uri'
 require 'json'
-require_relative 'clients/unu_client'
+require_relative '../clients/unu_client'
 
 # Telegram-бот-наблюдатель: его добавляют в чат или канал (в канал — как администратора),
 # и на каждую ссылку на комментарий VK вида https://vk.ru/wall711835918_3621?reply=3630

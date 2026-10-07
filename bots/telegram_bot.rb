@@ -3,7 +3,7 @@
 require 'net/http'
 require 'uri'
 require 'json'
-require_relative 'clients/unu_client'
+require_relative '../clients/unu_client'
 
 # Telegram-бот: по команде /like [N] и списку ссылок на комментарии VK
 # создаёт задачи в UNU (тариф «Лайки», по одной задаче на ссылку).

@@ -18,7 +18,7 @@ services:
     build: .
     container_name: vk-unu-autoapprove
     restart: unless-stopped
-    command: ["ruby", "unu_autoapprove.rb"]
+    command: ["ruby", "bots/unu_autoapprove.rb"]
     environment:
       TASK_LINKS_FILE: /data/task_links.json
     volumes:

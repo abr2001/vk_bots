@@ -3,7 +3,7 @@
 require 'net/http'
 require 'uri'
 require 'json'
-require_relative 'clients/unu_client'
+require_relative '../clients/unu_client'
 
 # Автоаппрув отчётов UNU: раз в INTERVAL_SECONDS находит активные задачи,
 # берёт их отчёты со статусом 2 («на проверке») и аппрувит (оплачивает).
