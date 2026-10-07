@@ -57,8 +57,9 @@ ssh root@<сервер> 'cd /root/vk_bot && docker compose up -d --build'
 ## Линт и тесты
 
 ```bash
+bundle install
 rubocop clients/*.rb bots/*.rb tests/*.rb
-rake test   # юнит-тесты на minitest (stdlib), без сети и реальных ключей
+bundle exec rake test   # юнит-тесты на minitest, HTTP стабается через WebMock — без сети и реальных ключей
 ```
 
 CI: GitHub Actions (`.github/workflows/tests.yml`) гоняет тесты на каждый push.

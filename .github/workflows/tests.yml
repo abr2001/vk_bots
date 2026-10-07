@@ -12,7 +12,5 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
-      - run: ruby -Itests tests/test_unu_client.rb
-      - run: ruby -Itests tests/test_vkserfing_client.rb
-      - run: ruby -Itests tests/test_vkserfing_watcher_bot.rb
-      - run: ruby -Itests tests/test_unu_autoapprove.rb
+          bundler-cache: true
+      - run: bundle exec rake test
